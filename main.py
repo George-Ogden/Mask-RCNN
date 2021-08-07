@@ -24,14 +24,21 @@ BOX_THICKNESS = 3
 TEXT_THICKNESS = 2
 MASK_OPACITY = 0.4
 DISPLAY_TITLE = "Mask-RCNN"
+HIDE_BOXES = False
+HIDE_MASKS = True
+HIDE_LABELS = True
+HIDE_VIDEO = False
+NO_SAVE = True
+SHOW_FPS = True
 
 cap = cv2.VideoCapture(VIDEO)
-w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-writer = cv2.VideoWriter(OUTPUT_PATH, cv2.VideoWriter_fourcc(*"mp4v"), OUTPUT_FPS, (w, h))
+if not NO_SAVE:
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    writer = cv2.VideoWriter(OUTPUT_PATH, cv2.VideoWriter_fourcc(*"mp4v"), OUTPUT_FPS, (w, h))
 
+t0 = time.time()
 while True:
-    t0 = time.time()
     ret, image = cap.read()
     if not ret:
         break
@@ -39,13 +46,19 @@ while True:
     for i, (box, label, score, mask) in enumerate(zip(*output.values())):
         if score < DETECTION_THRESHOLD or i == MAX_DETECTIONS:
             break
-        image = cv2.rectangle(image,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),colours[label], BOX_THICKNESS)
-        image = cv2.putText(image, classes[label], (int(box[0]),int(box[1]) - 3),0, 0.8, colours[label], TEXT_THICKNESS)
-        image[mask[0] > MASK_THRESHHOLD] = image[mask[0] > MASK_THRESHHOLD] * (1 - MASK_OPACITY) + MASK_OPACITY * np.array(colours[label])
-    cv2.imshow(DISPLAY_TITLE,image)
-    writer.write(image)
+        if not HIDE_BOXES:
+            image = cv2.rectangle(image,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),colours[label], BOX_THICKNESS)
+        if not HIDE_LABELS:
+            image = cv2.putText(image, classes[label], (int(box[0]),int(box[1]) - 3),0, 0.8, colours[label], TEXT_THICKNESS)
+        if not HIDE_MASKS:
+            image[mask[0] > MASK_THRESHHOLD] = image[mask[0] > MASK_THRESHHOLD] * (1 - MASK_OPACITY) + MASK_OPACITY * np.array(colours[label])
+    if not HIDE_VIDEO:
+        cv2.imshow(DISPLAY_TITLE,image)
+    if not NO_SAVE:
+        writer.write(image)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
-
-    print(f"FPS: {1/(time.time()-t0):.2f}"+" "*5,end="\r")
+    if SHOW_FPS:
+        print(f"FPS: {1/(time.time()-t0):.2f}"+" "*5,end="\r")
+        t0 = time.time()
