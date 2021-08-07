@@ -11,7 +11,7 @@ model = maskrcnn(pretrained=True).eval()
 classes = ["BG","person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant",None,"stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe",None,"backpack","umbrella",None,None,"handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle",None,"wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed",None,"dining table",None,None,"toilet",None,"tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator",None,"book","clock","vase","scissors","teddy bear","hair drier","toothbrush"]
 colours = [[random.randint(0,255) for c in range(3)] for _ in range(len(classes))]
 
-VIDEO = "bolt-short.mp4"
+VIDEO = 0
 OUTPUT_PATH = "test/folder/video.mp4"
 OUTPUT_FPS = 10
 DETECTION_THRESHOLD = 0.7
@@ -27,6 +27,7 @@ HIDE_LABELS = True
 HIDE_VIDEO = False
 NO_SAVE = True
 SHOW_FPS = True
+INCLUDE_CLASSES = ["person"] # classes[1:]
 
 directory = os.path.dirname(OUTPUT_PATH)
 os.makedirs(directory,exist_ok=True)
@@ -46,6 +47,8 @@ while True:
     for i, (box, label, score, mask) in enumerate(zip(*output.values())):
         if score < DETECTION_THRESHOLD or i == MAX_DETECTIONS:
             break
+        if not classes[label] in INCLUDE_CLASSES:
+            continue
         if not HIDE_BOXES:
             image = cv2.rectangle(image,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),colours[label], BOX_THICKNESS)
         if not HIDE_LABELS:
