@@ -3,15 +3,22 @@ import cv2
 import time
 import torch
 import random
+import argparse
 
 from torchvision.models.detection import maskrcnn_resnet50_fpn as maskrcnn
 import numpy as np
 
-model = maskrcnn(pretrained=True).eval()
 classes = ["BG","person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant",None,"stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe",None,"backpack","umbrella",None,None,"handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle",None,"wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed",None,"dining table",None,None,"toilet",None,"tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator",None,"book","clock","vase","scissors","teddy bear","hair drier","toothbrush"]
 colours = [[random.randint(0,255) for c in range(3)] for _ in range(len(classes))]
 
-VIDEO = 0
+parser = argparse.ArgumentParser(description="Mask-RCNN (segmentation model) implementation in PyTorch")
+parser.add_argument("--video",default="0",help="input video feed (use 0 for webcam)")
+args = parser.parse_args()
+try:
+    VIDEO = int(args.video)
+except:
+    VIDEO = args.video
+
 OUTPUT_PATH = "test/folder/video.mp4"
 OUTPUT_FPS = 10
 DETECTION_THRESHOLD = 0.7
@@ -29,14 +36,17 @@ NO_SAVE = True
 SHOW_FPS = True
 INCLUDE_CLASSES = ["person"] # classes[1:]
 
-directory = os.path.dirname(OUTPUT_PATH)
-os.makedirs(directory,exist_ok=True)
-
 cap = cv2.VideoCapture(VIDEO)
+if cap is None or not cap.isOpened():
+    raise RuntimeError(f"video (\"{VIDEO}\") is not a valid video")
 if not NO_SAVE:
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     writer = cv2.VideoWriter(OUTPUT_PATH, cv2.VideoWriter_fourcc(*"mp4v"), OUTPUT_FPS, (w, h))
+
+model = maskrcnn(pretrained=True).eval()
+directory = os.path.dirname(OUTPUT_PATH)
+os.makedirs(directory,exist_ok=True)
 
 t0 = time.time()
 while True:
