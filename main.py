@@ -7,15 +7,12 @@ import random
 from torchvision.models.detection import maskrcnn_resnet50_fpn as maskrcnn
 import numpy as np
 
-if not os.path.exists("output"):
-    os.mkdir("output")
-
 model = maskrcnn(pretrained=True).eval()
 classes = ["BG","person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant",None,"stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe",None,"backpack","umbrella",None,None,"handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle",None,"wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed",None,"dining table",None,None,"toilet",None,"tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator",None,"book","clock","vase","scissors","teddy bear","hair drier","toothbrush"]
 colours = [[random.randint(0,255) for c in range(3)] for _ in range(len(classes))]
 
 VIDEO = "bolt-short.mp4"
-OUTPUT_PATH = "output/video.mp4"
+OUTPUT_PATH = "test/folder/video.mp4"
 OUTPUT_FPS = 10
 DETECTION_THRESHOLD = 0.7
 MASK_THRESHHOLD = 0.5
@@ -30,6 +27,9 @@ HIDE_LABELS = True
 HIDE_VIDEO = False
 NO_SAVE = True
 SHOW_FPS = True
+
+directory = os.path.dirname(OUTPUT_PATH)
+os.makedirs(directory,exist_ok=True)
 
 cap = cv2.VideoCapture(VIDEO)
 if not NO_SAVE:
