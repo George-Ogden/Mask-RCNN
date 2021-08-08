@@ -13,28 +13,51 @@ colours = [[random.randint(0,255) for c in range(3)] for _ in range(len(classes)
 
 parser = argparse.ArgumentParser(description="Mask-RCNN (segmentation model) implementation in PyTorch")
 parser.add_argument("--video",default="0",help="input video feed (use 0 for webcam)")
+video_group = parser.add_mutually_exclusive_group()
+video_group.add_argument("--display-title",default="Mask-RCNN",help="window title")
+video_group.add_argument("--hide-video",action="store_true",help="do not show output video")
+output_group = parser.add_mutually_exclusive_group()
+boxes_group = parser.add_mutually_exclusive_group()
+masks_group = parser.add_mutually_exclusive_group()
+labels_group = parser.add_mutually_exclusive_group()
+boxes_group.add_argument("--box-thickness",default=3,type=int,help="thickness of boxes")
+parser.add_argument("--output-path",default="output/maskrcnn.mp4",help="video save location")
+parser.add_argument("--nosave",action="store_true",help="do not save output video")
+boxes_group.add_argument("--hide-boxes",action="store_true",help="do not show bounding boxes")
+masks_group.add_argument("--hide-masks",action="store_true",help="do not show segmentation masks")
+labels_group.add_argument("--hide-labels",action="store_true",help="do not show labels")
+parser.add_argument("--show-fps",action="store_true",help="display processing speed (fps)")
+parser.add_argument("--output-fps",default=10,type=int,help="output fps for video (for webcam speed only)")
+parser.add_argument("--detection-threshold",default=0.7,type=float,help="confidence threshold for detection (0-1)")
+parser.add_argument("--mask-threshold",default=0.5,type=float,help="confidence threshold for segmentation mask (0-1)")
+parser.add_argument("--max-detections",default=0,type=int,help="maximum concurrent detections (leave 0 for unlimited)")
+labels_group.add_argument("--text-thickness",default=2,type=int,help="thickness of label text")
+masks_group.add_argument("--mask-opacity",default=0.4,type=float,help="opacity of segmentation masks")
+parser.add_argument("--classes",nargs="+",default=["all"],help="limit to certain classes")
+
 args = parser.parse_args()
 try:
     VIDEO = int(args.video)
+    OUTPUT_FPS = args.output_fps
 except:
     VIDEO = args.video
+    OUTPUT_FPS = 0
 
-OUTPUT_PATH = "test/folder/video.mp4"
-OUTPUT_FPS = 10
-DETECTION_THRESHOLD = 0.7
-MASK_THRESHHOLD = 0.5
-MAX_DETECTIONS = 2
-BOX_THICKNESS = 3
-TEXT_THICKNESS = 2
-MASK_OPACITY = 0.4
-DISPLAY_TITLE = "Mask-RCNN"
-HIDE_BOXES = False
-HIDE_MASKS = True
-HIDE_LABELS = True
-HIDE_VIDEO = False
-NO_SAVE = True
-SHOW_FPS = True
-INCLUDE_CLASSES = ["person"] # classes[1:]
+OUTPUT_PATH = args.output_path
+DETECTION_THRESHOLD = args.detection_threshold
+MASK_THRESHHOLD = args.mask_threshold
+MAX_DETECTIONS = args.max_detections
+BOX_THICKNESS = args.box_thickness
+TEXT_THICKNESS = args.text_thickness
+MASK_OPACITY = args.mask_opacity
+DISPLAY_TITLE = args.display_title
+HIDE_BOXES = args.hide_boxes
+HIDE_MASKS = args.hide_masks
+HIDE_LABELS = args.hide_labels
+HIDE_VIDEO = args.hide_video
+NO_SAVE = args.nosave
+SHOW_FPS = args.show_fps
+INCLUDE_CLASSES = classes[1:] if "all" in args.classes else args.classes
 
 cap = cv2.VideoCapture(VIDEO)
 if cap is None or not cap.isOpened():
@@ -42,8 +65,9 @@ if cap is None or not cap.isOpened():
 if not NO_SAVE:
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    if OUTPUT_FPS == 0:
+        OUTPUT_FPS = int(cap.get(cv2.CAP_PROP_FPS))
     writer = cv2.VideoWriter(OUTPUT_PATH, cv2.VideoWriter_fourcc(*"mp4v"), OUTPUT_FPS, (w, h))
-
 model = maskrcnn(pretrained=True).eval()
 directory = os.path.dirname(OUTPUT_PATH)
 os.makedirs(directory,exist_ok=True)
@@ -55,7 +79,7 @@ while True:
         break
     output = model(torch.tensor(np.expand_dims(image,axis=0)).permute(0,3,1,2) / 255)[0]
     for i, (box, label, score, mask) in enumerate(zip(*output.values())):
-        if score < DETECTION_THRESHOLD or i == MAX_DETECTIONS:
+        if score < DETECTION_THRESHOLD or (i >= MAX_DETECTIONS and MAX_DETECTIONS != 0):
             break
         if not classes[label] in INCLUDE_CLASSES:
             continue
