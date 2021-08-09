@@ -1,4 +1,6 @@
 # Mask-RCNN Implementation
+This is a PyTorch implementation of Mask-RCNN. It uses the webcam or an input video and displays the output or saves the video. See [usage](#usage) for more information.
+View the paper at [arxiv.org/abs/1703.06870v1](https://arxiv.org/abs/1703.06870v1) or the PyTorch model source code [pytorch.org/vision/stable/_modules/torchvision/models/detection/mask_rcnn.html](https://pytorch.org/vision/stable/_modules/torchvision/models/detection/mask_rcnn.html).
 ## Setup
 ### pip
 `pip install -r requirements.txt`
