@@ -22,7 +22,7 @@ masks_group = parser.add_mutually_exclusive_group()
 labels_group = parser.add_mutually_exclusive_group()
 boxes_group.add_argument("--box-thickness",default=3,type=int,help="thickness of boxes")
 parser.add_argument("--output-path",default="output/maskrcnn.mp4",help="video save location")
-parser.add_argument("--nosave",action="store_true",help="do not save output video")
+parser.add_argument("--no-save",action="store_true",help="do not save output video")
 boxes_group.add_argument("--hide-boxes",action="store_true",help="do not show bounding boxes")
 masks_group.add_argument("--hide-masks",action="store_true",help="do not show segmentation masks")
 labels_group.add_argument("--hide-labels",action="store_true",help="do not show labels")
@@ -34,6 +34,7 @@ parser.add_argument("--max-detections",default=0,type=int,help="maximum concurre
 labels_group.add_argument("--text-thickness",default=2,type=int,help="thickness of label text")
 masks_group.add_argument("--mask-opacity",default=0.4,type=float,help="opacity of segmentation masks")
 parser.add_argument("--classes",nargs="+",default=["all"],help="limit to certain classes")
+parser.add_argument("--grey-background",action="store_true",help="make the background monochromatic")
 
 args = parser.parse_args()
 try:
@@ -55,8 +56,9 @@ HIDE_BOXES = args.hide_boxes
 HIDE_MASKS = args.hide_masks
 HIDE_LABELS = args.hide_labels
 HIDE_VIDEO = args.hide_video
-NO_SAVE = args.nosave
+NO_SAVE = args.no_save
 SHOW_FPS = args.show_fps
+GREY_BACKGROUND = args.grey_background
 INCLUDE_CLASSES = classes[1:] if "all" in args.classes else args.classes
 
 cap = cv2.VideoCapture(VIDEO)
@@ -78,6 +80,8 @@ while True:
     if not ret:
         break
     output = model(torch.tensor(np.expand_dims(image,axis=0)).permute(0,3,1,2) / 255)[0]
+    if GREY_BACKGROUND:
+        cover = np.zeros(image.shape,dtype=bool)
     for i, (box, label, score, mask) in enumerate(zip(*output.values())):
         if score < DETECTION_THRESHOLD or (i >= MAX_DETECTIONS and MAX_DETECTIONS != 0):
             break
@@ -89,11 +93,14 @@ while True:
             image = cv2.putText(image, classes[label], (int(box[0]),int(box[1]) - 3),0, 0.8, colours[label], TEXT_THICKNESS)
         if not HIDE_MASKS:
             image[mask[0] > MASK_THRESHHOLD] = image[mask[0] > MASK_THRESHHOLD] * (1 - MASK_OPACITY) + MASK_OPACITY * np.array(colours[label])
+        if GREY_BACKGROUND:
+            cover[mask[0] > MASK_THRESHHOLD] = 1
+    if GREY_BACKGROUND:
+        image[~cover] = np.tile(np.expand_dims(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),axis=2),(1,1,3))[~cover]
     if not HIDE_VIDEO:
         cv2.imshow(DISPLAY_TITLE,image)
     if not NO_SAVE:
         writer.write(image)
-
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
     if SHOW_FPS:
