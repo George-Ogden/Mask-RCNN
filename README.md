@@ -19,7 +19,7 @@ optional arguments:
   --video VIDEO         input video feed (use 0 for webcam)
   --grey-background     make the background monochromatic
   --classes CLASSES [CLASSES ...]
-                        limit to certain classes
+                        limit to certain classes (all or see classes.txt)
   --output-path OUTPUT_PATH
                         video save location
   --no-save             do not save output video
@@ -45,3 +45,5 @@ optional arguments:
   --box-thickness BOX_THICKNESS
                         thickness of boxes
 ```
+## Classes
+For a list of classes, see [classes.txt](classes.txt). The model has been trained on the COCO dataset so there are 80 classes. *Note: the model outputs 91 classes - one is the background and 10 are `None`*
