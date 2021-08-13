@@ -72,7 +72,8 @@ if not NO_SAVE:
     writer = cv2.VideoWriter(OUTPUT_PATH, cv2.VideoWriter_fourcc(*"mp4v"), OUTPUT_FPS, (w, h))
 model = maskrcnn(pretrained=True).eval()
 directory = os.path.dirname(OUTPUT_PATH)
-os.makedirs(directory,exist_ok=True)
+if directory:
+    os.makedirs(directory,exist_ok=True)
 
 t0 = time.time()
 while True:
