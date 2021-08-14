@@ -13,9 +13,9 @@ And this is quite a famous frame from a video that I've run it through:
 `conda env create -f env.yaml`
 ## Usage
 ```
-usage: main.py [-h] [--video VIDEO] [--grey-background] [--classes CLASSES [CLASSES ...]] [--output-path OUTPUT_PATH] [--no-save] [--detection-threshold DETECTION_THRESHOLD] [--mask-threshold MASK_THRESHOLD]
-               [--max-detections MAX_DETECTIONS] [--hide-video | --display-title DISPLAY_TITLE] [--hide-boxes] [--hide-masks] [--hide-labels] [--mask-opacity MASK_OPACITY] [--output-fps OUTPUT_FPS]
-               [--show-fps] [--text-thickness TEXT_THICKNESS] [--box-thickness BOX_THICKNESS]
+usage: main.py [-h] [--video VIDEO] [--grey-background] [--classes CLASSES [CLASSES ...]] [--output-path OUTPUT_PATH | --no-save] [--detection-threshold DETECTION_THRESHOLD]
+               [--mask-threshold MASK_THRESHOLD] [--max-detections MAX_DETECTIONS] [--hide-video | --display-title DISPLAY_TITLE] [--hide-boxes] [--hide-masks] [--hide-labels]
+               [--mask-opacity MASK_OPACITY] [--output-fps OUTPUT_FPS] [--show-fps] [--text-thickness TEXT_THICKNESS] [--box-thickness BOX_THICKNESS]
 
 Mask-RCNN (segmentation model) implementation in PyTorch
 
