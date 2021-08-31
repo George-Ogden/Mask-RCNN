@@ -4,6 +4,7 @@ import time
 import torch
 import random
 import argparse
+from glob import glob
 
 from torchvision.models.detection import maskrcnn_resnet50_fpn as maskrcnn
 import numpy as np
@@ -12,99 +13,148 @@ classes = ["BG","person","bicycle","car","motorcycle","airplane","bus","train","
 colours = [[random.randint(0,255) for c in range(3)] for _ in range(len(classes))]
 
 parser = argparse.ArgumentParser(description="Mask-RCNN (segmentation model) implementation in PyTorch")
-video_group = parser.add_mutually_exclusive_group()
+output_group = parser.add_mutually_exclusive_group()
 boxes_group = parser.add_mutually_exclusive_group()
 masks_group = parser.add_mutually_exclusive_group()
 labels_group = parser.add_mutually_exclusive_group()
-save_group = parser.add_mutually_exclusive_group()
-parser.add_argument("--video",default="0",help="input video feed (use 0 for webcam)")
 parser.add_argument("--grey-background",action="store_true",help="make the background monochromatic")
 parser.add_argument("--classes",nargs="+",default=["all"],help="limit to certain classes (all or see classes.txt)")
-save_group.add_argument("--output-path",default="output/maskrcnn.mp4",help="video save location")
-save_group.add_argument("--no-save",action="store_true",help="do not save output video")
 parser.add_argument("--detection-threshold",default=0.7,type=float,help="confidence threshold for detection (0-1)")
 parser.add_argument("--mask-threshold",default=0.5,type=float,help="confidence threshold for segmentation mask (0-1)")
 parser.add_argument("--max-detections",default=0,type=int,help="maximum concurrent detections (leave 0 for unlimited)")
-video_group.add_argument("--hide-video",action="store_true",help="do not show output video")
-video_group.add_argument("--display-title",default="Mask-RCNN",help="window title")
+output_group.add_argument("--hide-output",action="store_true",help="do not show output")
+output_group.add_argument("--display-title",default="Mask-RCNN",help="window title")
 boxes_group.add_argument("--hide-boxes",action="store_true",help="do not show bounding boxes")
 masks_group.add_argument("--hide-masks",action="store_true",help="do not show segmentation masks")
 labels_group.add_argument("--hide-labels",action="store_true",help="do not show labels")
 masks_group.add_argument("--mask-opacity",default=0.4,type=float,help="opacity of segmentation masks")
-parser.add_argument("--output-fps",default=10,type=int,help="output fps for video (for webcam speed only)")
 parser.add_argument("--show-fps",action="store_true",help="display processing speed (fps)")
 labels_group.add_argument("--text-thickness",default=2,type=int,help="thickness of label text")
 boxes_group.add_argument("--box-thickness",default=3,type=int,help="thickness of boxes")
 
+subparsers = parser.add_subparsers()
+
+image = subparsers.add_parser("image")
+output_group = image.add_mutually_exclusive_group()
+image.add_argument("--input-image","--input","-i",default="example.png",required=True,help="input image")
+output_group.add_argument("--save-path","--output","-o",default="output.png",help="output save location")
+output_group.add_argument("--no-save",action="store_true",help="do not save output image")
+image.set_defaults(action="image")
+
+folder = subparsers.add_parser("folder")
+output_group = folder.add_mutually_exclusive_group()
+folder.add_argument("--input-folder","--input","-i",default=".",required=True,help="input folder")
+output_group.add_argument("--output-folder","--output","-o",default="output/",help="output save location")
+output_group.add_argument("--no-save",action="store_true",help="do not save output image")
+folder.add_argument("--extensions","-e",nargs="+",default=["png", "jpeg", "jpg", "bmp", "tiff", "tif"],help="image file extensions")
+folder.set_defaults(action="folder")
+
+video = subparsers.add_parser("video")
+output_group = video.add_mutually_exclusive_group()
+video.add_argument("--input-video","--input","-i",default="example.mp4",required=True,help="input video")
+output_group.add_argument("--save-path","--output","-o",default="output.mp4",help="output save location")
+output_group.add_argument("--no-save",action="store_true",help="do not save output video")
+video.set_defaults(action="video")
+
+webcam = subparsers.add_parser("webcam")
+output_group = webcam.add_mutually_exclusive_group()
+webcam.add_argument("--source","--input","-i",type=int,default=0,help="webcam number")
+output_group.add_argument("--save-path","--output","-o",default="output.mp4",help="output save location")
+webcam.add_argument("--output-fps",default=1,type=int,help="output fps for video")
+output_group.add_argument("--no-save",action="store_true",help="do not save output")
+webcam.set_defaults(action="webcam")
+
 args = parser.parse_args()
-
-try:
-    VIDEO = int(args.video)
-    OUTPUT_FPS = args.output_fps
-except:
-    VIDEO = args.video
-    OUTPUT_FPS = 0
-
-OUTPUT_PATH = args.output_path
-DETECTION_THRESHOLD = args.detection_threshold
-MASK_THRESHHOLD = args.mask_threshold
-MAX_DETECTIONS = args.max_detections
-BOX_THICKNESS = args.box_thickness
-TEXT_THICKNESS = args.text_thickness
-MASK_OPACITY = args.mask_opacity
-DISPLAY_TITLE = args.display_title
-HIDE_BOXES = args.hide_boxes
-HIDE_MASKS = args.hide_masks
-HIDE_LABELS = args.hide_labels
-HIDE_VIDEO = args.hide_video
-NO_SAVE = args.no_save
-SHOW_FPS = args.show_fps
-GREY_BACKGROUND = args.grey_background
-INCLUDE_CLASSES = classes[1:] if "all" in args.classes else args.classes
-
-cap = cv2.VideoCapture(VIDEO)
-if cap is None or not cap.isOpened():
-    raise RuntimeError(f"video (\"{VIDEO}\") is not a valid video")
-if not NO_SAVE:
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    if OUTPUT_FPS == 0:
-        OUTPUT_FPS = int(cap.get(cv2.CAP_PROP_FPS))
-    writer = cv2.VideoWriter(OUTPUT_PATH, cv2.VideoWriter_fourcc(*"mp4v"), OUTPUT_FPS, (w, h))
+include_classes = classes[1:] if "all" in args.classes else args.classes
+mode = args.action
 model = maskrcnn(pretrained=True).eval()
-directory = os.path.dirname(OUTPUT_PATH)
-if directory:
-    os.makedirs(directory,exist_ok=True)
+
+def detect(image):
+    output = model(torch.tensor(np.expand_dims(image,axis=0)).permute(0,3,1,2) / 255)[0]
+    if args.grey_background:
+        cover = np.zeros(image.shape,dtype=bool)
+    for i, (box, label, score, mask) in enumerate(zip(*output.values())):
+        if score < args.detection_threshold or (i >= args.max_detections and args.max_detections != 0):
+            break
+        if not classes[label] in include_classes:
+            continue
+        if not args.hide_boxes:
+            image = cv2.rectangle(image,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),colours[label], args.box_thickness)
+        if not args.hide_labels:
+            image = cv2.putText(image, classes[label], (int(box[0]),int(box[1]) - 3),0, 0.8, colours[label], args.text_thickness)
+        if not args.hide_masks:
+            image[mask[0] > args.mask_threshold] = image[mask[0] > args.mask_threshold] * (1 - args.mask_opacity) + args.mask_opacity * np.array(colours[label])
+        if args.grey_background:
+            cover[mask[0] > args.mask_threshold] = 1
+    if args.grey_background:
+        image[~cover] = np.tile(np.expand_dims(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),axis=2),(1,1,3))[~cover]
+    return image
+    
+if mode in ["video","webcam"]:
+    if mode == "video":
+        source = args.input_video
+    else:
+        source = args.source
+    cap = cv2.VideoCapture(source)
+    if cap is None or not cap.isOpened():
+        raise RuntimeError(f"video (\"{source}\") is not a valid input")
+
+    if not args.no_save:
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        if mode == "video":
+            output_fps = int(cap.get(cv2.CAP_PROP_FPS))
+        else:
+            output_fps = args.output_fps
+        directory = os.path.dirname(args.save_path)
+        if directory:
+            os.makedirs(directory,exist_ok=True)
+        writer = cv2.VideoWriter(args.save_path, cv2.VideoWriter_fourcc(*"mp4v"), output_fps, (w, h))
+    mode = "video"
+elif mode == "folder":
+    files = []
+    folder = args.input_folder
+
+    if not folder.endswith("/") and not folder.endswith("\\"):
+        folder += "/"
+    
+    for extension in args.extensions:
+        files += glob(f"{folder}**/*.{extension}",recursive=True)
+    i = 0
 
 t0 = time.time()
 while True:
-    ret, image = cap.read()
-    if not ret:
-        break
-    output = model(torch.tensor(np.expand_dims(image,axis=0)).permute(0,3,1,2) / 255)[0]
-    if GREY_BACKGROUND:
-        cover = np.zeros(image.shape,dtype=bool)
-    for i, (box, label, score, mask) in enumerate(zip(*output.values())):
-        if score < DETECTION_THRESHOLD or (i >= MAX_DETECTIONS and MAX_DETECTIONS != 0):
+    if mode == "video":
+        ret, image = cap.read()
+        if not ret:
             break
-        if not classes[label] in INCLUDE_CLASSES:
-            continue
-        if not HIDE_BOXES:
-            image = cv2.rectangle(image,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),colours[label], BOX_THICKNESS)
-        if not HIDE_LABELS:
-            image = cv2.putText(image, classes[label], (int(box[0]),int(box[1]) - 3),0, 0.8, colours[label], TEXT_THICKNESS)
-        if not HIDE_MASKS:
-            image[mask[0] > MASK_THRESHHOLD] = image[mask[0] > MASK_THRESHHOLD] * (1 - MASK_OPACITY) + MASK_OPACITY * np.array(colours[label])
-        if GREY_BACKGROUND:
-            cover[mask[0] > MASK_THRESHHOLD] = 1
-    if GREY_BACKGROUND:
-        image[~cover] = np.tile(np.expand_dims(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),axis=2),(1,1,3))[~cover]
-    if not HIDE_VIDEO:
-        cv2.imshow(DISPLAY_TITLE,image)
-    if not NO_SAVE:
-        writer.write(image)
+    elif mode == "folder":
+        path = files[i]
+        image = cv2.imread(path)
+        i += 1
+    else:
+        image = cv2.imread(args.input_image)
+    image = detect(image)
+
+    if not args.hide_output:
+        cv2.imshow(args.display_title,image)
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
-    if SHOW_FPS:
+    
+    if not args.no_save:
+        if mode == "video":
+            writer.write(image)
+        else:
+            if mode == "folder":
+                save_path = os.path.join(args.output_folder,os.path.relpath(path,folder))
+            else:
+                save_path = args.save_path
+            directory = os.path.dirname(save_path)
+            if directory:
+                os.makedirs(directory,exist_ok=True)
+            cv2.imwrite(save_path,image)
+            if mode == "image" or i >= len(files):
+                break
+    if args.show_fps:
         print(f"FPS: {1/(time.time()-t0):.2f}"+" "*5,end="\r")
         t0 = time.time()
