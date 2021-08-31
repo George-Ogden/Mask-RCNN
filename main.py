@@ -81,13 +81,15 @@ def detect(image):
     if args.grey_background:
         # create a cover
         cover = np.zeros(image.shape,dtype=bool)
-    for i, (box, label, score, mask) in enumerate(zip(*output.values())):
+    i = 0
+    for box, label, score, mask in zip(*output.values()):
         # check if we need to keep detecting
         if score < args.detection_threshold or (i >= args.max_detections and args.max_detections != 0):
             break
         # ignore irrelevant classes
         if not classes[label] in include_classes:
             continue
+        i += 1
         # draw box
         if not args.hide_boxes:
             image = cv2.rectangle(image,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),colours[label], args.box_thickness)
